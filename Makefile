@@ -1,8 +1,7 @@
 all: restc
 
-# TODO: pkg-config
 restc: main.c
-	gcc -o restc -g main.c -lfcgi
+	gcc -g -Wall -o restc main.c `pkg-config fcgi jansson --cflags --libs`
 
 clean:
 	rm -f restc
