@@ -15,6 +15,13 @@ todo_t* todo_create(int id, const char* title) {
 	return todo;
 }
 
+void todo_set_title(todo_t* todo, const char* title) {
+	if (strcmp(todo->title, title)) {
+		free(todo->title);
+		todo->title = strdup(title);
+	}
+}
+
 void todo_destroy(todo_t* todo) {
 	assert(todo);
 
@@ -55,7 +62,7 @@ todo_t* todorepo_get_by_id(todorepo_t* repo, int id) {
 	return NULL;
 }
 
-void todorepo_todo_delete(todorepo_t* repo, int id) {
+bool todorepo_todo_delete(todorepo_t* repo, int id) {
 	for (todo_t** todos = repo->todos;
 	     todos < repo->todos + repo->todos_len;
 	     todos++) {
@@ -70,8 +77,11 @@ void todorepo_todo_delete(todorepo_t* repo, int id) {
 				*todos = other;
 				repo->todos[repo->todos_len] = NULL;
 			}
+
+			return true;
 		}
 	}
+	return false;
 }
 
 void todorepo_destroy(todorepo_t* repo) {

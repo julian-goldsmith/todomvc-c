@@ -18,14 +18,15 @@ typedef struct todorepo_s {
 } todorepo_t;
 
 todo_t* todo_create(int id, const char* title);
+void todo_set_title(todo_t* todo, const char* title);
+json_t* todo_to_json(todo_t* todo);
 void todo_destroy(todo_t* todo);
 
 todorepo_t* todorepo_create();
 todo_t* todorepo_todo_create(todorepo_t* repo, const char* title);
 todo_t* todorepo_get_by_id(todorepo_t* repo, int id);
-void todorepo_todo_delete(todorepo_t* repo, int id);
+bool todorepo_todo_delete(todorepo_t* repo, int id);
 void todorepo_destroy(todorepo_t* repo);
-json_t* todo_to_json(todo_t* todo);
 
 extern todorepo_t* repo;
 

@@ -7,7 +7,8 @@ typedef enum {
 	RM_INVALID,
 	RM_GET,
 	RM_POST,
-	RM_PUT
+	RM_PUT,
+	RM_DELETE
 } request_method_t;
 
 typedef struct env_s {

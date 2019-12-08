@@ -33,6 +33,10 @@ static void* worker(void* param) {
 	}
 
 	while (1) {
+		json_t* request_body = NULL;
+		json_t* response_body = NULL;
+		int status = 500;
+
 		err = FCGX_Accept_r(&request);
 		if (err) {
 			fprintf(stderr, "Failed to accept request: %i\n", err);
@@ -42,30 +46,29 @@ static void* worker(void* param) {
 		env_t* env = env_parse((const char**) request.envp);
 		assert(env && env->script_name);
 
-		json_t* request_body = NULL;
-		json_t* response;
-		int status = 500;
-
+		// If we should have a request body, try to parse it.
 		if (env->request_method == RM_POST || env->request_method == RM_PUT) {
 			json_error_t jerror;
 			request_body = json_load_callback(read_json, request.in, 0, &jerror);
-			if (!request_body) return error_handler("Unable to parse request.", 400, &status);
+			if (!request_body) return error_handler(400, &status);
 		}
 
 		// Route request.
 		if (!strncmp(env->script_name, "/todos", sizeof("/todos") - 1))		// Partial string comparison.
-			response = todos_handler(env, request_body, &status);
+			response_body = todos_handler(env, request_body, &status);
 		else
-			response = error_handler("Unknown request.", 404, &status);
+			response_body = error_handler(404, &status);
 
 		// Write headers.
-		FCGX_FPrintF(request.out, "Content-Type: application/json; charset=utf-8\r\n");
+		if (response_body) FCGX_FPrintF(request.out, "Content-Type: application/json; charset=utf-8\r\n");
 		FCGX_FPrintF(request.out, "Status: %i\r\n", status);
 		FCGX_FPrintF(request.out, "\r\n");
 
 		// Dump JSON value using write_json, and free response.
-		json_dump_callback(response, write_json, request.out, JSON_INDENT(4));
-		json_decref(response);
+		if (response_body) {
+			json_dump_callback(response_body, write_json, request.out, JSON_INDENT(4));
+			json_decref(response_body);
+		}
 
 		// Print trailing newline, and close out request.
 		FCGX_FPrintF(request.out, "\r\n");

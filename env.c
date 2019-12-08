@@ -43,6 +43,10 @@ env_t* env_parse(const char** envp) {
 					env->request_method = RM_GET;
 				else if (!strcmp(value, "POST"))
 					env->request_method = RM_POST;
+				else if (!strcmp(value, "PUT"))
+					env->request_method = RM_PUT;
+				else if (!strcmp(value, "DELETE"))
+					env->request_method = RM_DELETE;
 				else
 					env->request_method = RM_INVALID;
 			} else if (!strcmp(key, "CONTENT_LENGTH")) {
