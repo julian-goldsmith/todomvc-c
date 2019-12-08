@@ -1,3 +1,6 @@
+#ifndef TODO_H
+#define TODO_H
+
 #include <jansson.h>
 #include <stdbool.h>
 
@@ -23,3 +26,7 @@ todo_t* todorepo_get_by_id(todorepo_t* repo, int id);
 void todorepo_todo_delete(todorepo_t* repo, int id);
 void todorepo_destroy(todorepo_t* repo);
 json_t* todo_to_json(todo_t* todo);
+
+extern todorepo_t* repo;
+
+#endif

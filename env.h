@@ -1,8 +1,13 @@
+#ifndef ENV_H
+#define ENV_H
+
+#include <sys/types.h>
+
 typedef enum {
 	RM_INVALID,
 	RM_GET,
-	RM_POST
-	// TODO
+	RM_POST,
+	RM_PUT
 } request_method_t;
 
 typedef struct env_s {
@@ -15,3 +20,5 @@ typedef struct env_s {
 
 env_t* env_parse(const char** envp);
 void env_destroy(env_t* env);
+
+#endif

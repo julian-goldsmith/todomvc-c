@@ -3,6 +3,8 @@
 #include <assert.h>
 #include "todo.h"
 
+todorepo_t* repo = NULL;
+
 todo_t* todo_create(int id, const char* title) {
 	assert(title);
 

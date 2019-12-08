@@ -3,94 +3,17 @@
 #include <string.h>
 #include <assert.h>
 #include <fcgiapp.h>
-#include <jansson.h>
-#include "env.h"
-#include "todo.h"
+#include "handlers.h"
 
-static todorepo_t* repo = NULL;
-
-static int dump_json(const char* buffer, size_t size, void* data) {
-	FCGX_Request* request = (FCGX_Request*) data;
-	FCGX_PutStr(buffer, size, request->out);
+static int write_json(const char* buffer, size_t size, void* data) {
+	FCGX_Stream* out = (FCGX_Stream*) data;
+	FCGX_PutStr(buffer, size, out);
 	return 0;
 }
 
 static size_t read_json(void* buffer, size_t buflen, void* data) {
-	FCGX_Request* request = (FCGX_Request*) data;
-	return FCGX_GetStr((char*) buffer, buflen, request->in);
-}
-
-static json_t* error_handler(const char* description, int desired_status, int* status) {
-	const char* error_key = "error";
-	json_t* value = json_string(description);
-	json_t* object = json_object();
-	json_object_set_new(object, error_key, value);
-	*status = desired_status;
-	return object;
-}
-
-static json_t* todos_post_handler(FCGX_Request* request, int* status) {
-	json_error_t jerror;
-	json_t* value = json_load_callback(read_json, request, 0, &jerror);
-	if (!value) return error_handler("Unable to parse request.", 400, status);
-
-	json_t* jtitle = json_object_get(value, "title");
-	const char* title = json_string_value(jtitle);
-	if (!title) return error_handler("Missing title.", 400, status);
-
-	todo_t* todo = todorepo_todo_create(repo, title);
-	json_decref(jtitle);
-	json_decref(value);
-
-	*status = 201;
-	return todo_to_json(todo);
-}
-
-static json_t* todos_list_handler(int* status) {
-	json_t* todo_list = json_array();
-
-	for (todo_t** todos = repo->todos;
-	     *todos && todos < repo->todos + repo->todos_capacity;
-	     todos++) {
-		todo_t* todo = *todos;
-		json_t* jtodo = todo_to_json(todo);
-		json_array_append_new(todo_list, jtodo);
-	}
-
-	*status = 200;
-	return todo_list;
-}
-
-static json_t* todo_get_handler(int id, int* status) {
-	todo_t* todo = todorepo_get_by_id(repo, id);
-	if (!todo) return error_handler("Unknown item.", 404, status);
-
-	*status = 200;
-	return todo_to_json(todo);
-}
-
-static json_t* todos_handler(const env_t* env, FCGX_Request* request, int* status) {
-	// Use a partial string comparison to determine we have an id.
-	// We know the string must start with /todos .
-	if (env->script_name[sizeof("/todos")]  == '\0' ||
-	    env->script_name[sizeof("/todos/")] == '\0') {
-		if (env->request_method == RM_POST) {
-			return todos_post_handler(request, status);
-		} else if (env->request_method == RM_GET) {
-			return todos_list_handler(status);
-		} else {
-			return error_handler("Invalid request.", 400, status);
-		}
-	} else {
-		const char* idpos = env->script_name + sizeof("/todos/") - 1;
-		int id = atoi(idpos);				// 0 is an invalid todo id, so we can ignore errors.
-
-		if (env->request_method == RM_GET) {
-			return todo_get_handler(id, status);
-		} else {
-			return error_handler("Unimplemented.", 500, status);
-		}
-	}
+	FCGX_Stream* in = (FCGX_Stream*) data;
+	return FCGX_GetStr((char*) buffer, buflen, in);
 }
 
 static void* worker(void* param) {
@@ -119,12 +42,19 @@ static void* worker(void* param) {
 		env_t* env = env_parse((const char**) request.envp);
 		assert(env && env->script_name);
 
+		json_t* request_body = NULL;
 		json_t* response;
 		int status = 500;
 
+		if (env->request_method == RM_POST || env->request_method == RM_PUT) {
+			json_error_t jerror;
+			request_body = json_load_callback(read_json, request.in, 0, &jerror);
+			if (!request_body) return error_handler("Unable to parse request.", 400, &status);
+		}
+
 		// Route request.
 		if (!strncmp(env->script_name, "/todos", sizeof("/todos") - 1))		// Partial string comparison.
-			response = todos_handler(env, &request, &status);
+			response = todos_handler(env, request_body, &status);
 		else
 			response = error_handler("Unknown request.", 404, &status);
 
@@ -133,13 +63,17 @@ static void* worker(void* param) {
 		FCGX_FPrintF(request.out, "Status: %i\r\n", status);
 		FCGX_FPrintF(request.out, "\r\n");
 
-		// Dump JSON value using dump_json, and free response.
-		json_dump_callback(response, dump_json, &request, JSON_INDENT(4));
+		// Dump JSON value using write_json, and free response.
+		json_dump_callback(response, write_json, request.out, JSON_INDENT(4));
 		json_decref(response);
 
 		// Print trailing newline, and close out request.
 		FCGX_FPrintF(request.out, "\r\n");
 		FCGX_Finish_r(&request);
+
+		// Release resources from request.  Request body must be released after 
+		// response is written, because we keep references to strings in it.
+		if (request_body) json_decref(request_body);
 		env_destroy(env);
 	}
 
