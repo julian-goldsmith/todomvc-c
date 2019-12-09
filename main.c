@@ -1,5 +1,3 @@
-#include <errno.h>
-#include <sys/stat.h>
 #include <string.h>
 #include <assert.h>
 #include <fcgiapp.h>
@@ -20,7 +18,7 @@ static void* worker(void* param) {
 	FCGX_Request request;
 	int err, sockfd;
 
-	sockfd = FCGX_OpenSocket("/tmp/fastcgi/rest.sock", 32);
+	sockfd = FCGX_OpenSocket(":5050", 32);
 	if (sockfd < 0) {
 		fprintf(stderr, "Unable to open socket.\n");
 		exit(1);
@@ -50,14 +48,14 @@ static void* worker(void* param) {
 		if (env->request_method == RM_POST || env->request_method == RM_PUT) {
 			json_error_t jerror;
 			request_body = json_load_callback(read_json, request.in, 0, &jerror);
-			if (!request_body) return error_handler(400, &status);
+			if (!request_body) status = 400;				// FIXME: Handle properly.
 		}
 
 		// Route request.
 		if (!strncmp(env->script_name, "/todos", sizeof("/todos") - 1))		// Partial string comparison.
-			response_body = todos_handler(env, request_body, &status);
+			status = todos_handler(env, request_body, &response_body);
 		else
-			response_body = error_handler(404, &status);
+			status = 404;
 
 		// Write headers.
 		if (response_body) FCGX_FPrintF(request.out, "Content-Type: application/json; charset=utf-8\r\n");
@@ -86,11 +84,6 @@ static void* worker(void* param) {
 }
 
 int main(int argc, char** argv) {
-	struct stat statbuf;
-	int staterr = stat("/tmp/fastcgi", &statbuf);
-	if (staterr == -EPERM)
-		mkdir("/tmp/fastcgi", S_IRWXU | S_IRWXG);
-
 	if (FCGX_Init()) {
 		printf("Unable to init FCGI.\n");
 		return 1;

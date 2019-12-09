@@ -1,24 +1,17 @@
 #include <string.h>
 #include "handlers.h"
 
-json_t* error_handler(int desired_status, int* status) {
-	*status = desired_status;
-	return NULL;
-}
-
-static json_t* todos_create_handler(json_t* request_body, int* status) {
+static int todos_create_handler(json_t* request_body, json_t** response_body) {
 	json_t* jtitle = json_object_get(request_body, "title");
 	const char* title = json_string_value(jtitle);
-	if (!title) return error_handler(400, status);
+	if (!title) return 400;
 
 	todo_t* todo = todorepo_todo_create(repo, title);
-	json_decref(jtitle);
-
-	*status = 201;
-	return todo_to_json(todo);
+	*response_body = todo_to_json(todo);
+	return 201;
 }
 
-static json_t* todos_list_handler(int* status) {
+static int todos_list_handler(json_t** response_body) {
 	json_t* todo_list = json_array();
 
 	for (todo_t** todos = repo->todos;
@@ -29,11 +22,11 @@ static json_t* todos_list_handler(int* status) {
 		json_array_append_new(todo_list, jtodo);
 	}
 
-	*status = 200;
-	return todo_list;
+	*response_body = todo_list;
+	return 200;
 }
 
-static json_t* todos_archive_handler(int* status) {
+static int todos_archive_handler() {
 	int archive_ids[1024];					// TODO: Use a proper list.
 	int archive_pos = 0;
 
@@ -48,25 +41,24 @@ static json_t* todos_archive_handler(int* status) {
 	for (int i = 0; i < archive_pos; i++)
 		todorepo_todo_delete(repo, archive_ids[i]);	// TODO: Error handling.
 
-	*status = 204;
-	return NULL;
+	return 204;
 }
 
-static json_t* todo_get_handler(int id, int* status) {
+static int todo_get_handler(int id, json_t** response_body) {
 	todo_t* todo = todorepo_get_by_id(repo, id);
-	if (!todo) return error_handler(404, status);
+	if (!todo) return 404;
 
-	*status = 200;
-	return todo_to_json(todo);
+	*response_body = todo_to_json(todo);
+	return 200;
 }
 
-static json_t* todo_update_handler(int id, json_t* request_body, int* status) {
+static int todo_update_handler(int id, json_t* request_body, json_t** response_body) {
 	todo_t* todo = todorepo_get_by_id(repo, id);
-	if (!todo) return error_handler(404, status);
+	if (!todo) return 404;
 
 	json_t* jtitle = json_object_get(request_body, "title");
 	const char* title = json_string_value(jtitle);
-	if (!title) return error_handler(400, status);
+	if (!title) return 400;
 
 	json_t* jcompleted = json_object_get(request_body, "completed");
 	bool completed = json_is_true(jcompleted);
@@ -74,34 +66,27 @@ static json_t* todo_update_handler(int id, json_t* request_body, int* status) {
 	todo->completed = completed;
 	todo_set_title(todo, title);
 
-	json_decref(jtitle);
-	json_decref(jcompleted);
-
-	*status = 200;
-	return todo_to_json(todo);
+	*response_body = todo_to_json(todo);
+	return 200;
 }
 
-static json_t* todo_delete_handler(int id, int* status) {
-	bool deleted = todorepo_todo_delete(repo, id);
-	if (!deleted) return error_handler(404, status);
-
-	*status = 204;
-	return NULL;
+static int todo_delete_handler(int id) {
+	return todorepo_todo_delete(repo, id) ? 204 : 404;
 }
 
-json_t* todos_handler(const env_t* env, json_t* request_body, int* status) {
+int todos_handler(const env_t* env, json_t* request_body, json_t** response_body) {
 	// Use a partial string comparison to determine we have an id.
 	// We know the string must start with /todos .
 	if (env->script_name[sizeof("/todos") - 1]  == '\0' ||
 	    env->script_name[sizeof("/todos/") - 1] == '\0') {
 		if (env->request_method == RM_POST) {
-			return todos_create_handler(request_body, status);
+			return todos_create_handler(request_body, response_body);
 		} else if (env->request_method == RM_GET) {
-			return todos_list_handler(status);
+			return todos_list_handler(response_body);
 		} else if (env->request_method == RM_DELETE) {
-			return todos_archive_handler(status);
+			return todos_archive_handler();
 		} else {
-			return error_handler(400, status);
+			return 400;
 		}
 	} else {
 		// FIXME: Handle trailing slashes.
@@ -109,13 +94,13 @@ json_t* todos_handler(const env_t* env, json_t* request_body, int* status) {
 		int id = atoi(idpos);				// 0 is an invalid todo id, so we can ignore errors.
 
 		if (env->request_method == RM_GET) {
-			return todo_get_handler(id, status);
+			return todo_get_handler(id, response_body);
 		} else if (env->request_method == RM_PUT) {
-			return todo_update_handler(id, request_body, status);
+			return todo_update_handler(id, request_body, response_body);
 		} else if (env->request_method == RM_DELETE) {
-			return todo_delete_handler(id, status);
+			return todo_delete_handler(id);
 		} else {
-			return error_handler(500, status);
+			return 500;
 		}
 	}
 }

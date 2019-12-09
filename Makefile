@@ -1,11 +1,10 @@
-all: restc
+all: todomvc-c
 
-restc: main.c env.c todo.c handlers.c
-	gcc -g -Wall -pedantic -o restc main.c env.c todo.c handlers.c `pkg-config fcgi jansson --cflags --libs`
-	#gcc -Wl,-s -flto -O3 -Wall -o restc main.c env.c todo.c `pkg-config fcgi jansson --cflags --libs --static`
+todomvc-c: main.c env.c todo.c handlers.c
+	gcc -g -O0 -Wall -o todomvc-c main.c env.c todo.c handlers.c `pkg-config fcgi jansson --cflags --libs`
 
 clean:
-	rm -f restc
+	rm -f todomvc-c
 
 handlers.h: env.h todo.h
 env.c: env.h
