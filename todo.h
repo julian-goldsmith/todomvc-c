@@ -19,6 +19,7 @@ typedef struct todorepo_s {
 
 todo_t* todo_create(int id, const char* title);
 void todo_set_title(todo_t* todo, const char* title);
+void todo_set_completed(todo_t* todo, bool completed);
 json_t* todo_to_json(todo_t* todo);
 void todo_destroy(todo_t* todo);
 

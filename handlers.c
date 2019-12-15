@@ -63,8 +63,8 @@ static int todo_update_handler(int id, json_t* request_body, json_t** response_b
 	json_t* jcompleted = json_object_get(request_body, "completed");
 	bool completed = json_is_true(jcompleted);
 
-	todo->completed = completed;
 	todo_set_title(todo, title);
+	todo_set_completed(todo, completed);
 
 	*response_body = todo_to_json(todo);
 	return 200;

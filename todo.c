@@ -22,6 +22,10 @@ void todo_set_title(todo_t* todo, const char* title) {
 	}
 }
 
+void todo_set_completed(todo_t* todo, bool completed) {
+	todo->completed = completed;
+}
+
 void todo_destroy(todo_t* todo) {
 	assert(todo);
 
