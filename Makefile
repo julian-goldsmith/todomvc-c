@@ -1,7 +1,7 @@
 all: todomvc-c
 
 todomvc-c: main.c env.c todo.c handlers.c
-	gcc -g -O0 -Wall -o todomvc-c main.c env.c todo.c handlers.c `pkg-config fcgi jansson --cflags --libs`
+	gcc -g -O0 -Wall -o todomvc-c main.c env.c todo.c handlers.c `pkg-config fcgi jansson libpq --cflags --libs`
 
 clean:
 	rm -f todomvc-c

@@ -3,6 +3,7 @@
 
 #include <jansson.h>
 #include <stdbool.h>
+#include <libpq-fe.h>
 
 typedef struct todo_s {
 	int id;
@@ -11,10 +12,7 @@ typedef struct todo_s {
 } todo_t;
 
 typedef struct todorepo_s {
-	todo_t** todos;
-	size_t todos_capacity;
-	size_t todos_len;
-	int curr_id;
+	PGconn* conn;
 } todorepo_t;
 
 todo_t* todo_create(int id, const char* title);

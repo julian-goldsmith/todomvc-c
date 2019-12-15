@@ -16,6 +16,7 @@ todo_t* todo_create(int id, const char* title) {
 }
 
 void todo_set_title(todo_t* todo, const char* title) {
+	// FIXME: Implement this;
 	if (strcmp(todo->title, title)) {
 		free(todo->title);
 		todo->title = strdup(title);
@@ -23,6 +24,7 @@ void todo_set_title(todo_t* todo, const char* title) {
 }
 
 void todo_set_completed(todo_t* todo, bool completed) {
+	// FIXME: Implement this;
 	todo->completed = completed;
 }
 
@@ -34,39 +36,58 @@ void todo_destroy(todo_t* todo) {
 }
 
 todorepo_t* todorepo_create() {
+	PGconn* conn = PQconnectdb("");
+
+	if (PQstatus(conn) == CONNECTION_BAD) {
+		fprintf(stderr, "Failed to open connection.\n");
+		PQfinish(conn);
+		exit(1);				// FIXME: Do this better.
+	}
+
+	int ver = PQserverVersion(conn);
+	fprintf(stderr, "Server version: %i.\n", ver);
+
 	todorepo_t* repo = (todorepo_t*) malloc(sizeof(todorepo_t));
-	repo->todos_capacity = 1024;
-	repo->todos_len = 0;
-	repo->curr_id = 1;
-	repo->todos = (todo_t**) calloc(repo->todos_capacity, sizeof(todo_t*));
+	repo->conn = conn;
+
 	return repo;
 }
 
 todo_t* todorepo_todo_create(todorepo_t* repo, const char* title) {
-	int id = repo->curr_id++;
-	todo_t* todo = todo_create(id, title);
+	todo_t* todo = todo_create(0, title);
 
-	assert(repo->todos_len < repo->todos_capacity);
-	repo->todos[repo->todos_len++] = todo;
-
-	// FIXME: Expand list as needed.
+	// FIXME: Implement this;
 
 	return todo;
 }
 
 todo_t* todorepo_get_by_id(todorepo_t* repo, int id) {
-	for (todo_t** todos = repo->todos;
-	     todos < repo->todos + repo->todos_len;
-	     todos++) {
-		todo_t* todo = *todos;
-		if (todo->id == id) {
-			return todo;
-		}
+	// FIXME: Use actual parameters.
+	char stmt[1024];
+	sprintf(stmt, "select * from todos where id=%i", id);
+	PGresult* res = PQexec(repo->conn, stmt);
+
+	if (PQresultStatus(res) != PGRES_TUPLES_OK ||
+	    PQntuples(res) < 1) {
+		PQclear(res);
+		return NULL;
 	}
-	return NULL;
+
+	// FIXME: Do this in a reasonable way.
+	id = atoi(PQgetvalue(res, 0, 0));
+	char* title = PQgetvalue(res, 0, 1);
+	char* str_completed = PQgetvalue(res, 0, 2);
+	bool completed = str_completed[0] == 't';
+
+	todo_t* todo = todo_create(id, title);
+	todo->completed = completed;
+	PQclear(res);
+	return todo;
 }
 
 bool todorepo_todo_delete(todorepo_t* repo, int id) {
+	// FIXME: Implement this;
+	/*
 	for (todo_t** todos = repo->todos;
 	     todos < repo->todos + repo->todos_len;
 	     todos++) {
@@ -85,15 +106,12 @@ bool todorepo_todo_delete(todorepo_t* repo, int id) {
 			return true;
 		}
 	}
+	*/
 	return false;
 }
 
 void todorepo_destroy(todorepo_t* repo) {
-	assert(repo->todos_capacity <= repo->todos_len);
-	for (todo_t** todos = repo->todos;
-	     todos < repo->todos + repo->todos_len;
-	     todos++)
-		free(*todos);
+	PQfinish(repo->conn);
 	free(repo);
 }
 

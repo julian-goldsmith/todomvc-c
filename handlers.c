@@ -14,6 +14,8 @@ static int todos_create_handler(json_t* request_body, json_t** response_body) {
 static int todos_list_handler(json_t** response_body) {
 	json_t* todo_list = json_array();
 
+	// FIXME: Implement this;
+	/*
 	for (todo_t** todos = repo->todos;
 	     todos < repo->todos + repo->todos_len;
 	     todos++) {
@@ -21,12 +23,15 @@ static int todos_list_handler(json_t** response_body) {
 		json_t* jtodo = todo_to_json(todo);
 		json_array_append_new(todo_list, jtodo);
 	}
+	*/
 
 	*response_body = todo_list;
 	return 200;
 }
 
 static int todos_archive_handler() {
+	// FIXME: Implement this;
+	/*
 	int archive_ids[1024];					// TODO: Use a proper list.
 	int archive_pos = 0;
 
@@ -40,6 +45,7 @@ static int todos_archive_handler() {
 
 	for (int i = 0; i < archive_pos; i++)
 		todorepo_todo_delete(repo, archive_ids[i]);	// TODO: Error handling.
+	*/
 
 	return 204;
 }
@@ -53,6 +59,8 @@ static int todo_get_handler(int id, json_t** response_body) {
 }
 
 static int todo_update_handler(int id, json_t* request_body, json_t** response_body) {
+	// FIXME: Implement this;
+	/*
 	todo_t* todo = todorepo_get_by_id(repo, id);
 	if (!todo) return 404;
 
@@ -67,6 +75,7 @@ static int todo_update_handler(int id, json_t* request_body, json_t** response_b
 	todo_set_completed(todo, completed);
 
 	*response_body = todo_to_json(todo);
+	*/
 	return 200;
 }
 
