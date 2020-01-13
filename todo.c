@@ -50,6 +50,29 @@ todorepo_t* todorepo_create() {
 	return repo;
 }
 
+todo_t* parse_todo_internal(PGresult* res, int id_num, int title_num, int completed_num) {
+	int id = atoi(PQgetvalue(res, 0, id_num));
+	const char* title = PQgetvalue(res, 0, title_num);
+	const char* str_completed = PQgetvalue(res, 0, completed_num);
+	bool completed = str_completed[0] == 't';
+
+	todo_t* todo = todo_create(id, title);
+	todo->completed = completed;
+	return todo;
+}
+
+todo_t* parse_todo(PGresult* res) {
+	int id_num = PQfnumber(res, "id");
+	int title_num = PQfnumber(res, "title");
+	int completed_num = PQfnumber(res, "completed");
+
+	if (id_num < 0 || title_num < 0 || completed_num < 0) {
+		return NULL;
+	}
+
+	return parse_todo_internal(res, id_num, title_num, completed_num);
+}
+
 todo_t* todorepo_create_todo(todorepo_t* repo, const char* title) {
 	const char* stmt = "insert into todos(title, completed) "
 		"values($1, false) returning id, title, completed";
@@ -62,22 +85,7 @@ todo_t* todorepo_create_todo(todorepo_t* repo, const char* title) {
 		return NULL;
 	}
 
-	int id_num = PQfnumber(res, "id");
-	int title_num = PQfnumber(res, "title");
-	int completed_num = PQfnumber(res, "completed");
-
-	if (id_num < 0 || title_num < 0 || completed_num < 0) {
-		PQclear(res);
-		return NULL;
-	}
-
-	int id = atoi(PQgetvalue(res, 0, id_num));
-	title = PQgetvalue(res, 0, title_num);
-	const char* str_completed = PQgetvalue(res, 0, completed_num);
-	bool completed = str_completed[0] == 't';
-
-	todo_t* todo = todo_create(id, title);
-	todo->completed = completed;
+	todo_t* todo = parse_todo(res);
 	PQclear(res);
 	return todo;
 }
@@ -97,22 +105,7 @@ todo_t* todorepo_get_todo_by_id(todorepo_t* repo, int id) {
 		return NULL;
 	}
 
-	int id_num = PQfnumber(res, "id");
-	int title_num = PQfnumber(res, "title");
-	int completed_num = PQfnumber(res, "completed");
-
-	if (id_num < 0 || title_num < 0 || completed_num < 0) {
-		PQclear(res);
-		return NULL;
-	}
-
-	id = atoi(PQgetvalue(res, 0, id_num));
-	const char* title = PQgetvalue(res, 0, title_num);
-	const char* str_completed = PQgetvalue(res, 0, completed_num);
-	bool completed = str_completed[0] == 't';
-
-	todo_t* todo = todo_create(id, title);
-	todo->completed = completed;
+	todo_t* todo = parse_todo(res);
 	PQclear(res);
 	return todo;
 }
