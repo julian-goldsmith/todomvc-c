@@ -51,10 +51,34 @@ todorepo_t* todorepo_create() {
 }
 
 todo_t* todorepo_create_todo(todorepo_t* repo, const char* title) {
-	todo_t* todo = todo_create(0, title);
+	const char* stmt = "insert into todos(title, completed) "
+		"values($1, false) returning id, title, completed";
+	PGresult* res = PQexecParams(repo->conn, stmt, 1, NULL,
+		(const char* const[]) { title }, NULL, NULL, 0);
 
-	// FIXME: Implement this;
+	if (PQresultStatus(res) != PGRES_TUPLES_OK ||
+	    PQntuples(res) < 1) {
+		PQclear(res);
+		return NULL;
+	}
 
+	int id_num = PQfnumber(res, "id");
+	int title_num = PQfnumber(res, "title");
+	int completed_num = PQfnumber(res, "completed");
+
+	if (id_num < 0 || title_num < 0 || completed_num < 0) {
+		PQclear(res);
+		return NULL;
+	}
+
+	int id = atoi(PQgetvalue(res, 0, id_num));
+	title = PQgetvalue(res, 0, title_num);
+	const char* str_completed = PQgetvalue(res, 0, completed_num);
+	bool completed = str_completed[0] == 't';
+
+	todo_t* todo = todo_create(id, title);
+	todo->completed = completed;
+	PQclear(res);
 	return todo;
 }
 
@@ -63,8 +87,8 @@ todo_t* todorepo_get_todo_by_id(todorepo_t* repo, int id) {
 	sprintf(id_param, "%i", id);
 
 	PGresult* res = PQexecParams(
-		repo->conn, "select * from todos where id=$1", 1, NULL, 
-		(const char* const[]) { id_param }, NULL, NULL, 0);
+		repo->conn, "select id, title, completed from todos where id=$1", 
+		1, NULL, (const char* const[]) { id_param }, NULL, NULL, 0);
 
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK ||
@@ -82,7 +106,6 @@ todo_t* todorepo_get_todo_by_id(todorepo_t* repo, int id) {
 		return NULL;
 	}
 
-	// FIXME: Do this in a reasonable way.
 	id = atoi(PQgetvalue(res, 0, id_num));
 	const char* title = PQgetvalue(res, 0, title_num);
 	const char* str_completed = PQgetvalue(res, 0, completed_num);
@@ -102,8 +125,8 @@ todo_t* todorepo_get_all_todos(todorepo_t* repo, size_t *num_todos) {
 	*num_todos = -1;
 
 	PGresult *res = PQexecParams(
-		repo->conn, "select * from todos", 0, NULL,
-		NULL, NULL, NULL, 0);
+		repo->conn, "select id, title, completed from todos", 
+		0, NULL, NULL, NULL, NULL, 0);
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
 		PQclear(res);
