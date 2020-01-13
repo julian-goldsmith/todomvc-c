@@ -44,16 +44,13 @@ todorepo_t* todorepo_create() {
 		exit(1);				// FIXME: Do this better.
 	}
 
-	int ver = PQserverVersion(conn);
-	fprintf(stderr, "Server version: %i.\n", ver);
-
 	todorepo_t* repo = (todorepo_t*) malloc(sizeof(todorepo_t));
 	repo->conn = conn;
 
 	return repo;
 }
 
-todo_t* todorepo_todo_create(todorepo_t* repo, const char* title) {
+todo_t* todorepo_create_todo(todorepo_t* repo, const char* title) {
 	todo_t* todo = todo_create(0, title);
 
 	// FIXME: Implement this;
@@ -61,11 +58,14 @@ todo_t* todorepo_todo_create(todorepo_t* repo, const char* title) {
 	return todo;
 }
 
-todo_t* todorepo_get_by_id(todorepo_t* repo, int id) {
-	// FIXME: Use actual parameters.
-	char stmt[1024];
-	sprintf(stmt, "select * from todos where id=%i", id);
-	PGresult* res = PQexec(repo->conn, stmt);
+todo_t* todorepo_get_todo_by_id(todorepo_t* repo, int id) {
+	char id_param[32];
+	sprintf(id_param, "%i", id);
+
+	PGresult* res = PQexecParams(
+		repo->conn, "select * from todos where id=$1", 1, NULL, 
+		(const char* const[]) { id_param }, NULL, NULL, 0);
+
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK ||
 	    PQntuples(res) < 1) {
@@ -73,10 +73,19 @@ todo_t* todorepo_get_by_id(todorepo_t* repo, int id) {
 		return NULL;
 	}
 
+	int id_num = PQfnumber(res, "id");
+	int title_num = PQfnumber(res, "title");
+	int completed_num = PQfnumber(res, "completed");
+
+	if (id_num < 0 || title_num < 0 || completed_num < 0) {
+		PQclear(res);
+		return NULL;
+	}
+
 	// FIXME: Do this in a reasonable way.
-	id = atoi(PQgetvalue(res, 0, 0));
-	char* title = PQgetvalue(res, 0, 1);
-	char* str_completed = PQgetvalue(res, 0, 2);
+	id = atoi(PQgetvalue(res, 0, id_num));
+	const char* title = PQgetvalue(res, 0, title_num);
+	const char* str_completed = PQgetvalue(res, 0, completed_num);
 	bool completed = str_completed[0] == 't';
 
 	todo_t* todo = todo_create(id, title);
@@ -85,7 +94,50 @@ todo_t* todorepo_get_by_id(todorepo_t* repo, int id) {
 	return todo;
 }
 
-bool todorepo_todo_delete(todorepo_t* repo, int id) {
+todo_t* todorepo_get_all_todos(todorepo_t* repo, size_t *num_todos) {
+	assert(repo != NULL);
+	assert(repo->conn != NULL);
+	assert(num_todos != NULL);
+
+	*num_todos = -1;
+
+	PGresult *res = PQexecParams(
+		repo->conn, "select * from todos", 0, NULL,
+		NULL, NULL, NULL, 0);
+
+	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+		PQclear(res);
+		*num_todos = -1;
+		return NULL;
+	}
+
+	int id_num = PQfnumber(res, "id");
+	int title_num = PQfnumber(res, "title");
+	int completed_num = PQfnumber(res, "completed");
+
+	if (id_num < 0 || title_num < 0 || completed_num < 0) {
+		PQclear(res);
+		*num_todos = -1;
+		return NULL;
+	}
+
+	*num_todos = PQntuples(res);
+	todo_t *todos = (todo_t*) calloc(*num_todos, sizeof(todo_t));
+
+	for (int i = 0; i < *num_todos; i++) {
+		todo_t* todo = todos + i;
+
+		todo->id = atoi(PQgetvalue(res, i, id_num));
+		todo->title = strdup(PQgetvalue(res, i, title_num));
+
+		const char* str_completed = PQgetvalue(res, i, completed_num);
+		todo->completed = str_completed[0] == 't';
+	}
+
+	return todos;
+}
+
+bool todorepo_delete_todo(todorepo_t* repo, int id) {
 	// FIXME: Implement this;
 	/*
 	for (todo_t** todos = repo->todos;

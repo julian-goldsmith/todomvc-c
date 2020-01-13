@@ -6,24 +6,28 @@ static int todos_create_handler(json_t* request_body, json_t** response_body) {
 	const char* title = json_string_value(jtitle);
 	if (!title) return 400;
 
-	todo_t* todo = todorepo_todo_create(repo, title);
+	todo_t* todo = todorepo_create_todo(repo, title);
 	*response_body = todo_to_json(todo);
 	return 201;
 }
 
 static int todos_list_handler(json_t** response_body) {
+	size_t num_todos = 0;
+	todo_t *todos = todorepo_get_all_todos(repo, &num_todos);
+	if (!todos || num_todos < 0) {
+		return 500;
+	}
+
 	json_t* todo_list = json_array();
 
-	// FIXME: Implement this;
-	/*
-	for (todo_t** todos = repo->todos;
-	     todos < repo->todos + repo->todos_len;
-	     todos++) {
-		todo_t* todo = *todos;
-		json_t* jtodo = todo_to_json(todo);
+	for (int i = 0; i < num_todos; i++) {
+		todo_t *todo = todos + i;
+		json_t *jtodo = todo_to_json(todo);
 		json_array_append_new(todo_list, jtodo);
+		free(todo->title);				// FIXME: Do this better.
 	}
-	*/
+
+	free(todos);
 
 	*response_body = todo_list;
 	return 200;
@@ -44,14 +48,14 @@ static int todos_archive_handler() {
 	}
 
 	for (int i = 0; i < archive_pos; i++)
-		todorepo_todo_delete(repo, archive_ids[i]);	// TODO: Error handling.
+		todorepo_delete_todo(repo, archive_ids[i]);	// TODO: Error handling.
 	*/
 
 	return 204;
 }
 
 static int todo_get_handler(int id, json_t** response_body) {
-	todo_t* todo = todorepo_get_by_id(repo, id);
+	todo_t* todo = todorepo_get_todo_by_id(repo, id);
 	if (!todo) return 404;
 
 	*response_body = todo_to_json(todo);
@@ -61,7 +65,7 @@ static int todo_get_handler(int id, json_t** response_body) {
 static int todo_update_handler(int id, json_t* request_body, json_t** response_body) {
 	// FIXME: Implement this;
 	/*
-	todo_t* todo = todorepo_get_by_id(repo, id);
+	todo_t* todo = todorepo_get_todo_by_id(repo, id);
 	if (!todo) return 404;
 
 	json_t* jtitle = json_object_get(request_body, "title");
@@ -80,7 +84,7 @@ static int todo_update_handler(int id, json_t* request_body, json_t** response_b
 }
 
 static int todo_delete_handler(int id) {
-	return todorepo_todo_delete(repo, id) ? 204 : 404;
+	return todorepo_delete_todo(repo, id) ? 204 : 404;
 }
 
 int todos_handler(const env_t* env, json_t* request_body, json_t** response_body) {
@@ -98,9 +102,10 @@ int todos_handler(const env_t* env, json_t* request_body, json_t** response_body
 			return 400;
 		}
 	} else {
-		// FIXME: Handle trailing slashes.
+		// 0 is an invalid todo id, so we can ignore atoi errors.
+		// Trailing slashes are taken off by nginx.
 		const char* idpos = env->script_name + sizeof("/todos/") - 1;
-		int id = atoi(idpos);				// 0 is an invalid todo id, so we can ignore errors.
+		int id = atoi(idpos);
 
 		if (env->request_method == RM_GET) {
 			return todo_get_handler(id, response_body);

@@ -18,6 +18,7 @@ static void* worker(void* param) {
 	FCGX_Request request;
 	int err, sockfd;
 
+	// TODO: IPv6?
 	sockfd = FCGX_OpenSocket(":5050", 32);
 	if (sockfd < 0) {
 		fprintf(stderr, "Unable to open socket.\n");
