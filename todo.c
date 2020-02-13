@@ -16,7 +16,6 @@ todo_t* todo_create(int id, const char* title) {
 }
 
 void todo_set_title(todo_t* todo, const char* title) {
-	// FIXME: Implement this;
 	if (strcmp(todo->title, title)) {
 		free(todo->title);
 		todo->title = strdup(title);
@@ -24,7 +23,6 @@ void todo_set_title(todo_t* todo, const char* title) {
 }
 
 void todo_set_completed(todo_t* todo, bool completed) {
-	// FIXME: Implement this;
 	todo->completed = completed;
 }
 
@@ -88,6 +86,31 @@ todo_t* todorepo_create_todo(todorepo_t* repo, const char* title) {
 	todo_t* todo = parse_todo(res);
 	PQclear(res);
 	return todo;
+}
+
+todo_t* todorepo_update_todo(todorepo_t* repo, todo_t* todo) {
+	char id_str[10] = { 0 };
+	snprintf(id_str, sizeof(id_str), "%i", todo->id);
+
+	const char* completed_str = todo->completed ? "true" : "false";
+
+	const char* stmt = "update todos "
+		"set title=$2, completed=$3 "
+		"where id = $1 "
+		"returning id, title, completed";
+	PGresult* res = PQexecParams(repo->conn, stmt, 3, NULL,
+		(const char* const[]) { id_str, todo->title, completed_str },
+		NULL, NULL, 0);
+
+	if (PQresultStatus(res) != PGRES_TUPLES_OK ||
+	    PQntuples(res) < 1) {
+		PQclear(res);
+		return NULL;
+	}
+
+	todo_t* todo_new = parse_todo(res);
+	PQclear(res);
+	return todo_new;
 }
 
 todo_t* todorepo_get_todo_by_id(todorepo_t* repo, int id) {
@@ -154,28 +177,17 @@ todo_t* todorepo_get_all_todos(todorepo_t* repo, size_t *num_todos) {
 }
 
 bool todorepo_delete_todo(todorepo_t* repo, int id) {
-	// FIXME: Implement this;
-	/*
-	for (todo_t** todos = repo->todos;
-	     todos < repo->todos + repo->todos_len;
-	     todos++) {
-		todo_t* todo = *todos;
-		if (todo->id == id) {
-			todo_destroy(todo);
-			repo->todos_len--;
+	char id_str[10] = { 0 };
+	snprintf(id_str, sizeof(id_str), "%i", id);
 
-			// Swap with last todo.  If current todo is last, should be a NOP.
-			if (repo->todos_len > 0) {
-				todo_t* other = repo->todos[repo->todos_len];
-				*todos = other;
-				repo->todos[repo->todos_len] = NULL;
-			}
+	const char* stmt = "delete from todos where id = $1";
+	PGresult* res = PQexecParams(repo->conn, stmt, 1, NULL,
+		(const char* const[]) { id_str },
+		NULL, NULL, 0);
 
-			return true;
-		}
-	}
-	*/
-	return false;
+	ExecStatusType status = PQresultStatus(res);
+	PQclear(res);
+	return status == PGRES_COMMAND_OK;
 }
 
 void todorepo_destroy(todorepo_t* repo) {

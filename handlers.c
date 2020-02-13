@@ -34,22 +34,25 @@ static int todos_list_handler(json_t** response_body) {
 }
 
 static int todos_archive_handler() {
-	// FIXME: Implement this;
-	/*
-	int archive_ids[1024];					// TODO: Use a proper list.
-	int archive_pos = 0;
-
-	for (todo_t** todos = repo->todos;
-	     todos < repo->todos + repo->todos_len;
-	     todos++) {
-		todo_t* todo = *todos;
-		if (todo->completed && archive_pos < 1024)
-			archive_ids[archive_pos++] = todo->id;
+	size_t num_todos = 0;
+	todo_t *todos = todorepo_get_all_todos(repo, &num_todos);
+	if (!todos || num_todos < 0) {
+		return 500;
 	}
 
-	for (int i = 0; i < archive_pos; i++)
-		todorepo_delete_todo(repo, archive_ids[i]);	// TODO: Error handling.
-	*/
+	for (todo_t* todo = todos; todo < todos + num_todos; todo++) {
+		if (todo->completed) {
+			if (!todorepo_delete_todo(repo, todo->id)) {
+				free(todo->title);
+				free(todos);
+				return 500;
+			}
+		}
+
+		free(todo->title);				// FIXME: Do this better.
+	}
+
+	free(todos);
 
 	return 204;
 }
@@ -63,23 +66,22 @@ static int todo_get_handler(int id, json_t** response_body) {
 }
 
 static int todo_update_handler(int id, json_t* request_body, json_t** response_body) {
-	// FIXME: Implement this;
-	/*
 	todo_t* todo = todorepo_get_todo_by_id(repo, id);
 	if (!todo) return 404;
 
 	json_t* jtitle = json_object_get(request_body, "title");
 	const char* title = json_string_value(jtitle);
 	if (!title) return 400;
+	todo_set_title(todo, title);
 
 	json_t* jcompleted = json_object_get(request_body, "completed");
-	bool completed = json_is_true(jcompleted);
+	todo_set_completed(todo, json_is_true(jcompleted));
 
-	todo_set_title(todo, title);
-	todo_set_completed(todo, completed);
+	todo_t* todo_new = todorepo_update_todo(repo, todo);
+	*response_body = todo_to_json(todo_new);
 
-	*response_body = todo_to_json(todo);
-	*/
+	todo_destroy(todo);
+	todo_destroy(todo_new);
 	return 200;
 }
 

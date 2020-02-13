@@ -26,6 +26,7 @@ todo_t* todorepo_create_todo(todorepo_t* repo, const char* title);
 todo_t* todorepo_get_todo_by_id(todorepo_t* repo, int id);
 todo_t* todorepo_get_all_todos(todorepo_t* repo, size_t *num_todos);
 bool todorepo_delete_todo(todorepo_t* repo, int id);
+todo_t* todorepo_update_todo(todorepo_t* repo, todo_t* todo);
 void todorepo_destroy(todorepo_t* repo);
 
 extern todorepo_t* repo;
